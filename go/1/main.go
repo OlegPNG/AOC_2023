@@ -50,7 +50,7 @@ func numString() []string {
 }
 func main() {
     start := time.Now()
-    file, err := os.Open("/home/devin/aoc/go/1/input.txt")
+    file, err := os.Open("input.txt")
     if err != nil {
         log.Fatal(err)
         return
