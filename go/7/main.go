@@ -9,16 +9,16 @@ import (
 )
 
 var CardValues = map[byte]int{
-    'J': 9,
-    '2': 0,
-    '3': 1,
-    '4': 2,
-    '5': 3,
-    '6': 4,
-    '7': 5,
-    '8': 6,
-    '9': 7,
-    'T': 8,
+    'J': 0,
+    '2': 1,
+    '3': 2,
+    '4': 3,
+    '5': 4,
+    '6': 5,
+    '7': 6,
+    '8': 7,
+    '9': 8,
+    'T': 9,
     'Q': 10,
     'K': 11,
     'A': 12,
@@ -125,26 +125,45 @@ func getHandType(hand string) HandType {
         switch cardTotal {
         case 2:
             if onePairPresent {
-                handType = TwoPair
-                return handType
+                //handType = TwoPair
+                //return handType
+                if TwoPair > handType {
+                    handType = TwoPair
+                    continue
+                }
             }
             if threeKindPresent {
-                handType = FullHouse
-                return handType
+                //handType = FullHouse
+                //return handType
+                if FullHouse > handType {
+                    handType = FullHouse
+                    continue
+                }
             }
             onePairPresent = true
-            handType = OnePair
+            if OnePair > handType {
+                handType = OnePair
+            }
 
         case 3:
             if onePairPresent {
-                handType = FullHouse
-                return handType
+                //handType = FullHouse
+                //return handType
+                if FullHouse > handType {
+                    handType = FullHouse
+                    continue
+                }
             }
             threeKindPresent = true
-            handType = ThreeKind
+            if ThreeKind > handType {
+                handType = ThreeKind
+            }
         case 4:
-            handType = FourKind
-            return handType
+            //handType = FourKind
+            //return handType
+            if FourKind > handType {
+                handType = FourKind
+            }
         case 5:
             handType = FiveKind
             return handType
@@ -155,7 +174,9 @@ func getHandType(hand string) HandType {
 
 func partOne(scanner *bufio.Scanner) {
     hands := []Hand{}
+    counter := 0
     for scanner.Scan() {
+        counter++
         line := scanner.Text()
         cards, bidString := splitLine(line)
         bid, err := strconv.Atoi(strings.ReplaceAll(bidString, " ", ""))
@@ -167,21 +188,22 @@ func partOne(scanner *bufio.Scanner) {
             cards: cards,
             bid: bid,
         }
-        log.Printf("Hand Type: %v\n", hand.handType.toString())
+        //log.Printf("Hand %d Type: %v\n", counter, hand.handType.toString())
         hands = append(hands, hand)
     }
     hands = bubbleSort(hands)
     total := 0
     for index, hand := range(hands) {
         winnings := hand.bid * (index + 1)
-        //log.Printf("Hand %d Type: %v\n", index + 1, hand.handType.toString())
+        log.Printf("Hand %d: %v Bid: %d Winnings: %v\n", index + 1, hand.cards, hand.bid, winnings)
         total += winnings
     }
+    //log.Println("Hand 500: ", hands[876].cards)
     log.Printf("Total: %d\n", total)
 }
 
 func main() {
-    file, err := os.Open("sample.txt")
+    file, err := os.Open("input.txt")
     if err != nil {
         log.Fatal(err)
     }
