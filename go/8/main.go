@@ -6,170 +6,172 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 )
 
-type instruction int
-
+type Instruction int
 const (
-    Left instruction = iota
+    Left Instruction = iota
     Right
 )
 
-type Element struct {
+type Data struct {
+    Instructions    []Instruction 
+    StartNodes      []Node
+    Network         Network
+}
+
+type Node struct {
     Index   string
     Left    string
     Right   string
 }
 
-func(e *Element) toString() string {
-    return fmt.Sprintf("%v: (%v, %v)", e.Index, e.Left, e.Right)
-}
+type Network map[string]Node
 
-type Document struct {
-    Instructions    []instruction 
-    Elements        map[string]*Element
-    CurrentElement  *Element
-    CurrentElementList []*Element
-}
-
-func parseFile(scanner *bufio.Scanner) Document {
-    instructions := []instruction{}
-    elements := map[string]*Element{}
-    startingElements := []*Element{}
-    var current *Element
-    scanner.Scan()
-    line := scanner.Text()
-    for _, char := range(line) {
-        if char == 'L' {
-            instructions = append(instructions, Left)
-        } else if char == 'R' {
-            instructions = append(instructions, Right)
-        }
-    }
-    scanner.Scan()
-
-    //Get first element
-    //scanner.Scan()
-    //line = scanner.Text()
-    //key, current := parseElement(line)
-    //elements[key] = &current
-    //log.Printf("(%v) (%v, %v)\n\n", key, current.Left, current.Right)
-
-    for scanner.Scan() {
-        line := scanner.Text()
-        key, element := parseElement(line)
-        elements[key] = &element
-        if key[2] == 'A' {
-            startingElements = append(startingElements, &element)
-        }
-        //log.Printf("Adding element: %v\n", element.toString())
-        //log.Printf("(%v) (%v, %v)\n\n", key, element.Left, element.Right)
-    }
-
-    current = elements["AAA"]
-
-    return Document{
-        Instructions: instructions,
-        Elements: elements,
-        CurrentElement: current,
-        CurrentElementList: startingElements,
-    }
-}
-
-// Returns key and element
-func parseElement(line string) (string, Element) {
-    line = strings.ReplaceAll(line, " ", "")
-    index := line[:strings.Index(line, "=")]
-
-    left := line[strings.Index(line, "(") + 1 : strings.Index(line, ",")]
-
-    right := line[strings.Index(line, ",") + 1 : strings.Index(line, ")")]
-
-    element := Element{
-        Index: index,
-        Left: left,
-        Right: right,
-    }
-    return index, element
-}
-
-func partOne(document Document) {
-    counter := 0
-    for document.CurrentElement.Index != "ZZZ" {
-        instruction := document.Instructions[counter % len(document.Instructions)]
-        switch instruction {
-        case Left:
-            println("L ")
-            newElement, ok := document.Elements[document.CurrentElement.Left]
-            fmt.Printf("New Element: %v\n", newElement.toString())
-            if !ok {
-                log.Fatal("Element not found")
-            }
-            document.CurrentElement = newElement
-        case Right:
-            println("R ")
-            newElement, ok := document.Elements[document.CurrentElement.Right]
-            fmt.Printf("New Element: %v\n", newElement.toString())
-            if !ok {
-                log.Fatal("Element not found")
-            }
-            document.CurrentElement = newElement
-        }
-        counter++
-    }
-    log.Printf("Steps: %d\n", counter)
-}
-
-func checkAllRoutesComplete(elements []*Element) bool {
-    //for _, element := range(elements) {
-    //    fmt.Printf("%v,", element.Index)
-    //}
-    //println()
-    for _, element := range(elements) {
-        if element.Index[2] != 'Z' {
-            return false
-        }
-        //println()
-    }
-    return true
-}
-
-func partTwo(document Document) {
-    counter := 0
-    println(len(document.CurrentElementList))
-    for !checkAllRoutesComplete(document.CurrentElementList) {
-        fmt.Printf("Step %d: \n", counter)
-        instruction := document.Instructions[counter % len(document.Instructions)]
-        
-        switch instruction {
-        case Left:
-            for i, element := range(document.CurrentElementList) {
-                newElement := document.Elements[element.Left]
-                document.CurrentElementList[i] = newElement
-                //fmt.Printf("New Element: %v\n", newElement.toString())
-            }
-        case Right:
-            for i, element := range(document.CurrentElementList) {
-                newElement := document.Elements[element.Right]
-                document.CurrentElementList[i] = newElement
-                //fmt.Printf("New Element: %v\n", newElement.toString())
-            }
-        }
-        counter++
-    }
-
-    log.Println("Steps: ", counter)
-}
-
-func main() {
-    file, err := os.Open("input.txt")
+func parseFile(fileName string) Data {
+    file, err := os.Open(fileName)
     if err != nil {
         log.Fatal(err)
     }
 
     scanner := bufio.NewScanner(file)
+    scanner.Scan()
+    line := scanner.Text()
 
-    document := parseFile(scanner)
-    //partOne(document)
-    partTwo(document)
+    instructions := []Instruction{}
+    for _, c := range(line) {
+        //println(char)
+        if c == 'L' {
+            instructions = append(instructions, Left)
+        } else {
+            instructions = append(instructions, Right)
+        }
+    }
+    scanner.Scan()
+
+    network := Network{}
+    startNodes := []Node{}
+    for scanner.Scan() {
+        line := scanner.Text()
+        equalIndex := strings.Index(line, "=")
+        
+        nodeIndex := line[:equalIndex - 1]
+
+        lParen := strings.Index(line, "(") + 1
+        rParen := strings.Index(line, ")")
+        //foo := line[lParen:rParen]
+        nodeStrings := strings.Split(line[lParen:rParen], ", ")
+        //fmt.Printf("(%v)", foo)
+
+        node := Node{
+            Index: nodeIndex,
+            Left: nodeStrings[0],
+            Right: nodeStrings[1],
+        }
+        network[nodeIndex] = node
+        if strings.Contains(nodeIndex, "A") {
+            startNodes = append(startNodes, node)
+        }
+    }
+
+    return Data{
+        Instructions: instructions,
+        Network: network,
+        StartNodes: startNodes,
+    }
+
+}
+
+func partOne(data Data) {
+    node := data.Network["AAA"]
+    count := 0
+    for node.Index != "ZZZ" {
+        instruction := data.Instructions[count % len(data.Instructions)]
+        if instruction == Left {
+            node = data.Network[node.Left]
+        } else {
+            node = data.Network[node.Right]
+        }
+        count++
+    }
+    fmt.Printf("Total: %d\n", count)
+}
+
+func partTwo(data Data) {
+    nodes := data.StartNodes
+
+    resultPointers := []*int{}
+
+    var wg sync.WaitGroup
+    for _, node := range(nodes) {
+        wg.Add(1)
+        var result int
+        go thread(&result, node, data, &wg)
+        resultPointers = append(resultPointers, &result)
+    }
+    wg.Wait()
+    results := []int{}
+    for _, num := range(resultPointers) {
+        results = append(results, *num)
+    }
+
+    a := results[0]
+    b := results[1]
+    results = results[2:]
+    total := LCM(a, b, results...)
+    fmt.Printf("Result: %d\n", total)
+}
+
+func thread(result *int, start Node, data Data, wg *sync.WaitGroup) {
+    defer wg.Done()
+    count := 0
+    node := start
+    for !checkFinished(node) {
+        instruction := data.Instructions[count % len(data.Instructions)]
+        if instruction == Left {
+            node = data.Network[node.Left]
+        } else {
+            node = data.Network[node.Right]
+        }
+        count ++
+    }
+    *result = count
+}
+
+func checkFinished(node Node) bool {
+    index := node.Index
+    return index[len(index) - 1] == 'Z' 
+}
+func checkAllFinished(nodes []Node) bool {
+    for _, node := range(nodes) {
+        if index := node.Index; index[len(index) - 1] != 'Z' {
+            return false
+        }
+    }
+    return true
+}
+
+func main() {
+    data := parseFile("input.txt")
+    //partOne(data)
+    partTwo(data)
+}
+
+func GCD(a, b int) int {
+    for b!= 0 {
+        t := b
+        b = a % b
+        a = t
+    }
+    return a
+}
+
+func LCM(a, b int, integers ...int) int {
+    result := a * b / GCD(a, b)
+    for i := 0; i < len(integers); i ++ {
+        result = LCM(result, integers[i])
+    }
+
+    return result
 }
